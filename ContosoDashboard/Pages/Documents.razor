@@ -1,0 +1,81 @@
+@page "/documents"
+@using System.Security.Claims
+@attribute [Authorize]
+@inject IDocumentService DocumentService
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<PageTitle>Documents - ContosoDashboard</PageTitle>
+
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col">
+            <h1>Documents</h1>
+        </div>
+        <div class="col-auto">
+            <button type="button" class="btn btn-primary" @onclick="OpenUpload">
+                <i class="bi bi-upload"></i> Upload
+            </button>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(message))
+    {
+        <div class="alert alert-success alert-dismissible" role="status">
+            @message
+            <button type="button" class="btn-close" aria-label="Close" @onclick="() => message = null"></button>
+        </div>
+    }
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger" role="alert">@errorMessage</div>
+    }
+
+    <h2 class="h5">My Documents</h2>
+    <DocumentList Items="documents" />
+</div>
+
+<DocumentUploadModal Show="showUpload" OnClose="CloseUpload" OnUploaded="OnUploaded" />
+
+@code {
+    private List<DocumentSummary>? documents;
+    private int currentUserId;
+    private bool showUpload;
+    private string? message;
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var claim = authState.User.FindFirst(ClaimTypes.NameIdentifier);
+        if (claim != null && int.TryParse(claim.Value, out var id))
+        {
+            currentUserId = id;
+            await LoadDocuments();
+        }
+    }
+
+    private async Task LoadDocuments()
+    {
+        try
+        {
+            var result = await DocumentService.GetMyDocumentsAsync(currentUserId);
+            documents = result.Items;
+        }
+        catch (Exception)
+        {
+            errorMessage = "Your documents could not be loaded. Please try again.";
+            documents = new List<DocumentSummary>();
+        }
+    }
+
+    private void OpenUpload() => showUpload = true;
+
+    private void CloseUpload() => showUpload = false;
+
+    private async Task OnUploaded()
+    {
+        message = "Document(s) uploaded successfully.";
+        await LoadDocuments();
+    }
+}
